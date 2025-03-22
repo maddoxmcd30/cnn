@@ -26,12 +26,33 @@ def convert_images_to_arrays(image_folder):
                 print(f"Error reading image: {filename}")
     return np.array(image_list)
 
-# Example usage:
-image_folder = 'archiveDataset/train'
-image_arrays = convert_images_to_arrays(image_folder)
+def create_new_image_array(image_folder):
+#    image_folder = 'archiveDataset/train/happy'
+    image_arrays = convert_images_to_arrays(image_folder)
+    if image_arrays.size > 0:
+        print(f"Successfully converted {len(image_arrays)} images to arrays.")
+        #plt.imshow(image_arrays[0])
+        #plt.title("Example Image")
+        #plt.axis('off')
+        #plt.show()
+        #print(image_arrays[0].shape)
+        # Further processing with image_arrays (e.g., saving to a file)
+    else:
+        print("No images were converted.")
 
-if image_arrays.size > 0:
-    print(f"Successfully converted {len(image_arrays)} images to arrays.")
-    # Further processing with image_arrays (e.g., saving to a file)
-else:
-     print("No images were converted.")
+
+while True:
+    response = int(input("What would you like do?\n0: Quit\n1: Create new data set"
+                         "\n2: save it \n3: use it \n"))
+    match response:
+        case 0:
+            break
+        case 1:
+            create_new_image_array(input("file name\n"))
+        case 2:
+            image_arrays = convert_images_to_arrays(input("file name\n"))
+            np.save("happy_faces.npy", image_arrays)
+        case 3:
+            saved_array = np.load("data/happy_faces.npy")
+            plt.imshow(saved_array[0])
+            plt.show()
