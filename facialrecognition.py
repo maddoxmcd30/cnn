@@ -148,6 +148,58 @@ def training():
 
     torch.save(model.state_dict(), "model2.pth")
 
+def video():
+    mod = EmotionCNN().to(device)
+    mod.load_state_dict(torch.load("model2.pth"))
+
+    emotion_labels = ["Happy", "Sad", "Surprised"]
+
+    camera = cv.VideoCapture(0)
+
+    if not camera.isOpened():
+        print("Could not open camera.")
+        exit()
+    haarcascade_path = os.path.join(cv.__path__[0], 'data', 'haarcascade_frontalface_default.xml')
+
+
+    face_cascade = cv.CascadeClassifier(haarcascade_path)
+
+    while True:
+        ret, frame = camera.read()
+        if not ret:
+            print("Failed to grab frame.")
+            break
+
+        gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
+
+        for (x, y, a, b) in faces:
+            face = gray[y:y + a, x:x + b]  # Crop face
+            face_resized = cv.resize(face, (48, 48))  # Resize to model input size
+            face_normalized = face_resized / 255.0
+            face_input = np.expand_dims(face_normalized, axis=(0, -1))  # shape (1, 48, 48, 1)
+            face_tensor = torch.tensor(face_input, dtype=torch.float32).permute(0, 3, 1, 2).to(device)
+            # shape becomes (1, 1, 48, 48) as expected by Conv2D
+
+            predict = mod(face_tensor)
+
+            emotion = emotion_labels[np.argmax(predict.detach().cpu().numpy())]
+
+            # Draw rectangle and emotion label
+            cv.rectangle(frame, (x, y), (x + a, y + b), (255, 0, 0), 2)
+            cv.putText(frame, emotion, (x, y - 10), cv.FONT_HERSHEY_SIMPLEX,
+                        0.9, (0, 255, 0), 2)
+            cv.imshow("Facial Expression Recognition", frame)
+
+        if cv.waitKey(100) & 0xFF == ord('0'):
+            break
+
+
+
+    # Release resources
+    camera.release()
+    cv.destroyAllWindows()
+
 
 while True:
     response = int(input("What would you like do?\n0: Quit\n"
@@ -168,6 +220,8 @@ while True:
             prediction = output.argmax(dim=1)
 
             print("Predicted class:", prediction.item())
+        case 3:
+            video()
 
 
 
