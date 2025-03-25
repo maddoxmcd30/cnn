@@ -2,10 +2,11 @@ import numpy as np
 import torchvision
 import torch
 import torch.nn as nn
-import torch.optim
+import torch.optim as optim
 import torchvision.transforms as transforms
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
+from PIL import Image
 import matplotlib.pyplot as plt
 import cv2 as cv
 import pandas as pd
@@ -45,12 +46,7 @@ def create_new_image_array(image_folder):
         print("No images were converted.")
 
 
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torchvision import datasets, transforms
-from torch.utils.data import DataLoader
-import os
+
 
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -59,10 +55,11 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 # Image size (adjust if needed)
-IMAGE_SIZE = 64
+IMAGE_SIZE = 48
 
 # Transforms (resize + normalize)
 transform = transforms.Compose([
+    transforms.Grayscale(num_output_channels=1),
     transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.5], std=[0.5])  # for grayscale; if RGB, use 3 channels
@@ -84,7 +81,7 @@ class EmotionCNN(nn.Module):
     def __init__(self):
         super(EmotionCNN, self).__init__()
         self.conv_layers = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=3, padding=1),  # If grayscale, change to 1 input channel
+            nn.Conv2d(1, 32, kernel_size=3, padding=1 ),  # If grayscale, change to 1 input channel
             nn.ReLU(),
             nn.MaxPool2d(2, 2),
 
@@ -118,7 +115,7 @@ def training():
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     # Training loop
-    num_epochs = 10
+    num_epochs = 20
     for epoch in range(num_epochs):
         model.train()
         running_loss = 0.0
@@ -149,44 +146,31 @@ def training():
 
     print(f'Test Accuracy: {100 * correct / total:.2f}%')
 
+    torch.save(model.state_dict(), "model2.pth")
+
+
 while True:
-    response = int(input("What would you like do?\n0: Quit\n1: Create new data set"
-                         "\n2222: save it \n3: use it \n"))
+    response = int(input("What would you like do?\n0: Quit\n"
+                         "1: train a new  model\n2:Test specific image\n"))
     match response:
         case 0:
             break
         case 1:
             training()
-        case 2222:
-            image_arrays = convert_images_to_arrays("archiveDataset/train/happy")
-            np.save("happy_faces.npy", image_arrays)
-            image_arrays = convert_images_to_arrays("archiveDataset/train/sad")
-            np.save("sad_faces.npy", image_arrays)
-            image_arrays = convert_images_to_arrays("archiveDataset/train/surprise")
-            np.save("surprise_faces.npy", image_arrays)
+        case 2:
+            model = EmotionCNN().to(device)
+            model.load_state_dict(torch.load("model2.pth"))
+            img = Image.open("images/henry happy2.jpg").convert("RGB")
+            input_tensor = transform(img).unsqueeze(0).to(device)  # Add batch dimension
 
-        case 3:
-            saved_array = np.load("happy_faces.npy")
-            plt.imshow(saved_array[1])
-            plt.show()
-        case 4:
-            print(os.getcwd())
-        case 6:
-            transform = transforms.Compose([
-                transforms.Resize((48, 48)),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.5], std=[0.5])  # for grayscale; if RGB, use 3 channels
-            ])
+            # Run the model
+            output = model(input_tensor)
+            prediction = output.argmax(dim=1)
 
-            train_dir = 'dataset/train'
-            test_dir = 'dataset/test'
+            print("Predicted class:", prediction.item())
 
-            train_dataset = datasets.ImageFolder(root=train_dir, transform=transform)
-            test_dataset = datasets.ImageFolder(root=test_dir, transform=transform)
-        case 5:
-            import torch
 
-            print(torch.cuda.is_available())
-            print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else "No GPU found.")
+
+
 
 
