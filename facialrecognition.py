@@ -36,33 +36,23 @@ def create_new_image_array(image_folder):
     image_arrays = convert_images_to_arrays(image_folder)
     if image_arrays.size > 0:
         print(f"Successfully converted {len(image_arrays)} images to arrays.")
-        #plt.imshow(image_arrays[0])
-        #plt.title("Example Image")
-        #plt.axis('off')
-        #plt.show()
-        #print(image_arrays[0].shape)
-        # Further processing with image_arrays (e.g., saving to a file)
     else:
         print("No images were converted.")
 
 
 
 
-# Device configuration
+# Uses Nvidia gpu to make things faster if you have one
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-
-
-
-# Image size (adjust if needed)
 IMAGE_SIZE = 48
 
-# Transforms (resize + normalize)
+# Transforms image to grayscale, correct size, and normalizes
 transform = transforms.Compose([
     transforms.Grayscale(num_output_channels=1),
     transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
     transforms.ToTensor(),
-    transforms.Normalize(mean=[0.5], std=[0.5])  # for grayscale; if RGB, use 3 channels
+    transforms.Normalize(mean=[0.5], std=[0.5])  # for grayscale
 ])
 
 # Datasets
@@ -76,12 +66,13 @@ train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
 
-# Define CNN model
+# Define CNN model, its inheriting
 class EmotionCNN(nn.Module):
     def __init__(self):
         super(EmotionCNN, self).__init__()
+        # cnn layers
         self.conv_layers = nn.Sequential(
-            nn.Conv2d(1, 32, kernel_size=3, padding=1 ),  # If grayscale, change to 1 input channel
+            nn.Conv2d(1, 32, kernel_size=3, padding=1 ),
             nn.ReLU(),
             nn.MaxPool2d(2, 2),
 
@@ -93,7 +84,7 @@ class EmotionCNN(nn.Module):
             nn.ReLU(),
             nn.MaxPool2d(2, 2)
         )
-
+        # hidden layers
         self.fc_layers = nn.Sequential(
             nn.Flatten(),
             nn.Linear(128 * (IMAGE_SIZE // 8) * (IMAGE_SIZE // 8), 128),
@@ -110,8 +101,10 @@ def training():
     # Initialize model
     model = EmotionCNN().to(device)
 
-    # Loss and optimizer
-    criterion = nn.CrossEntropyLoss()
+    # Loss: CrossEntropyLoss uses a mixture of softmax and logloss
+    loss_calc = nn.CrossEntropyLoss()
+    # adam optimizer tracks previous weight adjustments so that adjustments have momentum
+    # it will adjust the learning rate for individual weights based on previous movements
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     # Training loop
@@ -124,7 +117,7 @@ def training():
 
             optimizer.zero_grad()
             outputs = model(images)
-            loss = criterion(outputs, labels)
+            loss = loss_calc(outputs, labels)
             loss.backward()
             optimizer.step()
 
@@ -140,31 +133,34 @@ def training():
         for images, labels in test_loader:
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
-            _, predicted = torch.max(outputs.data, 1)
+            predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
     print(f'Test Accuracy: {100 * correct / total:.2f}%')
 
-    torch.save(model.state_dict(), "model2.pth")
+    # saves new model to be used later without recreating it
+    # is saved to the main project folder
+    torch.save(model.state_dict(), input("\nName of model"))
 
+# Much of this was taken from different cites like github, any comments I made are clarified
 def video():
     mod = EmotionCNN().to(device)
     mod.load_state_dict(torch.load("model2.pth"))
 
     emotion_labels = ["Happy", "Sad", "Surprised"]
-
+    # 0 is used for default camera, try 1 if it doesn't work
     camera = cv.VideoCapture(0)
 
     if not camera.isOpened():
         print("Could not open camera.")
         exit()
+
+    # Maddox - cv has a built-in face finder. this allows us to use it
     haarcascade_path = os.path.join(cv.__path__[0], 'data', 'haarcascade_frontalface_default.xml')
-
-
     face_cascade = cv.CascadeClassifier(haarcascade_path)
-    repeat = True
-    while repeat:
+
+    while True:
         ret, frame = camera.read()
         if not ret:
             print("Failed to grab frame.")
@@ -176,6 +172,7 @@ def video():
         padding = 60
 
         for (x, y, a, b) in faces:
+            # Maddox - Box around face is too small when mouth is open, this reshapes the box to be bigger
             x1 = max(x - padding, 0)
             y1 = max(y - padding, 0)
             x2 = min(x + a + padding, frame.shape[1])
@@ -192,12 +189,13 @@ def video():
 
             emotion = emotion_labels[np.argmax(predict.detach().cpu().numpy())]
 
-            # Draw rectangle and emotion label
+            # Maddox - Draw rectangle and emotion label
             cv.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
             cv.putText(frame, emotion, (x, y - 10), cv.FONT_HERSHEY_SIMPLEX,
                         0.9, (0, 255, 0), 2)
             cv.imshow("Facial Expression Recognition", frame)
 
+        # Maddox - press the zero key to stop the program
         if cv.waitKey(100) & 0xFF == ord('0'):
             break
 
@@ -210,7 +208,7 @@ def video():
 
 while True:
     response = int(input("What would you like do?\n0: Quit\n"
-                         "1: train a new  model\n2:Test specific image\n"))
+                         "1: Train a new  model\n2: Test specific image\n3: Video test\n"))
     match response:
         case 0:
             break
