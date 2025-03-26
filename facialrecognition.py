@@ -163,8 +163,8 @@ def video():
 
 
     face_cascade = cv.CascadeClassifier(haarcascade_path)
-
-    while True:
+    repeat = True
+    while repeat:
         ret, frame = camera.read()
         if not ret:
             print("Failed to grab frame.")
@@ -173,7 +173,14 @@ def video():
         gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
         faces = face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
 
+        padding = 60
+
         for (x, y, a, b) in faces:
+            x1 = max(x - padding, 0)
+            y1 = max(y - padding, 0)
+            x2 = min(x + a + padding, frame.shape[1])
+            y2 = min(y + b + padding, frame.shape[0])
+
             face = gray[y:y + a, x:x + b]  # Crop face
             face_resized = cv.resize(face, (48, 48))  # Resize to model input size
             face_normalized = face_resized / 255.0
@@ -186,7 +193,7 @@ def video():
             emotion = emotion_labels[np.argmax(predict.detach().cpu().numpy())]
 
             # Draw rectangle and emotion label
-            cv.rectangle(frame, (x, y), (x + a, y + b), (255, 0, 0), 2)
+            cv.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
             cv.putText(frame, emotion, (x, y - 10), cv.FONT_HERSHEY_SIMPLEX,
                         0.9, (0, 255, 0), 2)
             cv.imshow("Facial Expression Recognition", frame)
@@ -220,8 +227,10 @@ while True:
             prediction = output.argmax(dim=1)
 
             print("Predicted class:", prediction.item())
+            break
         case 3:
             video()
+            break
 
 
 
