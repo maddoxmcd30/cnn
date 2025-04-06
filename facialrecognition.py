@@ -82,14 +82,17 @@ class EmotionCNN(nn.Module):
 
             nn.Conv2d(64, 128, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(2, 2)
+            nn.MaxPool2d(2, 2),
+
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.ReLU(),
         )
         # hidden layers
         self.fc_layers = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(128 * (IMAGE_SIZE // 8) * (IMAGE_SIZE // 8), 128),
+            nn.Linear(256 * (IMAGE_SIZE // 8) * (IMAGE_SIZE // 8), 256),
             nn.ReLU(),
-            nn.Linear(128, 3)  # 3 emotion classes: happy, sad, surprise
+            nn.Linear(256, 3)  # 3 emotion classes: happy, sad, surprise
         )
 
     def forward(self, x):
@@ -133,7 +136,7 @@ def training():
         for images, labels in test_loader:
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
-            predicted = torch.max(outputs.data, 1)
+            _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
@@ -146,7 +149,7 @@ def training():
 # Much of this was taken from different cites like github, any comments I made are clarified
 def video():
     mod = EmotionCNN().to(device)
-    mod.load_state_dict(torch.load("model2.pth"))
+    mod.load_state_dict(torch.load("256_out_4L_AC83.93"))
 
     emotion_labels = ["Happy", "Sad", "Surprised"]
     # 0 is used for default camera, try 1 if it doesn't work
@@ -216,7 +219,7 @@ while True:
             training()
         case 2:
             model = EmotionCNN().to(device)
-            model.load_state_dict(torch.load("model2.pth"))
+            model.load_state_dict(torch.load("256_out_4L_AC83.93"))
             img = Image.open("images/henry happy2.jpg").convert("RGB")
             input_tensor = transform(img).unsqueeze(0).to(device)  # Add batch dimension
 
@@ -229,7 +232,6 @@ while True:
         case 3:
             video()
             break
-
 
 
 
