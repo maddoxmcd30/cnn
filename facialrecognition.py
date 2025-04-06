@@ -220,7 +220,7 @@ while True:
         case 2:
             model = EmotionCNN().to(device)
             model.load_state_dict(torch.load("256_out_4L_AC83.93"))
-            img = Image.open("images/henry happy2.jpg").convert("RGB")
+            img = Image.open("images/sad.jpg").convert("RGB")
             input_tensor = transform(img).unsqueeze(0).to(device)  # Add batch dimension
 
             # Run the model
